@@ -28,6 +28,7 @@ config.read(config_file_path)
 COMSKIP_PATH = os.path.expandvars(os.path.expanduser(config.get('Helper Apps', 'comskip-path')))
 COMSKIP_INI_PATH = os.path.expandvars(os.path.expanduser(config.get('Helper Apps', 'comskip-ini-path')))
 FFMPEG_PATH = os.path.expandvars(os.path.expanduser(config.get('Helper Apps', 'ffmpeg-path')))
+HANDBRAKECLI_PATH = os.path.expandvars(os.path.expanduser(config.get('Helper Apps', 'HandBrakeCLI-path')))
 LOG_FILE_PATH = os.path.expandvars(os.path.expanduser(config.get('Logging', 'logfile-path')))
 CONSOLE_LOGGING = config.getboolean('Logging', 'console-logging')
 TEMP_ROOT = os.path.expandvars(os.path.expanduser(config.get('File Manipulation', 'temp-root')))
@@ -36,6 +37,7 @@ COPY_ORIGINAL = config.getboolean('File Manipulation', 'copy-original')
 SAVE_ALWAYS = config.getboolean('File Manipulation', 'save-always')
 SAVE_FORENSICS = config.getboolean('File Manipulation', 'save-forensics')
 NICE_LEVEL = config.get('Helper Apps', 'nice-level')
+TRANSCODE = config.getboolean('Transcoding', 'transcode-after-comskip')
 
 # Exit states
 CONVERSION_SUCCESS = 0
@@ -127,7 +129,8 @@ try:
   if sys.argv[2:]:
     logging.info('Output will be put in: %s' % sys.argv[2])
     output_video_dir = os.path.dirname(sys.argv[2])
-
+  
+  original_video_dir = os.path.dirname(video_path)
   video_basename = os.path.basename(video_path)
   video_name, video_ext = os.path.splitext(video_basename)
 
@@ -223,6 +226,18 @@ except Exception, e:
   logging.error('Something went wrong during concatenation: %s' % e)
   cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS, EXCEPTION_HANDLED)
 
+#IF specified, transcode into mp4
+if TRANSCODE:
+  logging.info('Going to transcode the file to mp4')
+  try:
+   ffmpeg_args = [HANDBRAKECLI_PATH, '-i', os.path.join(temp_dir, video_basename), '-o', os.path.join(temp_dir, 'temp.mp4'), '--format', 'av_mp4', '--encoder', 'x264', '--quality', '20' , '--x264-preset', 'veryfast' ]
+   transcode_cmd = NICE_ARGS + ffmpeg_args
+   logging.info('[HBCLI] Command: %s' % transcode_cmd)
+   subprocess.call(transcode_cmd)
+  except Exception, e:
+    logging.error('Something went wrong during transcoding: %s' % e)
+    cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS, EXCEPTION_HANDLED)
+
 logging.info('Sanity checking our work...')
 try:
   input_size = os.path.getsize(os.path.abspath(video_path))
@@ -232,9 +247,17 @@ try:
     cleanup_and_exit(temp_dir, SAVE_ALWAYS, CONVERSION_DID_NOT_MODIFY_ORIGINAL)
   elif input_size and 1.1 > float(output_size) / float(input_size) > 0.5:
     logging.info('Output file size looked sane, we\'ll replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
-    logging.info('Copying the output file into place: %s -> %s' % (video_basename, output_video_dir))
-    shutil.copy(os.path.join(temp_dir, video_basename), output_video_dir)
-    cleanup_and_exit(temp_dir, SAVE_ALWAYS)
+    if TRANSCODE:
+      output_file = os.path.join(temp_dir, 'temp.mp4')
+      logging.info('Copying the transcoded file into place: %s -> %s' % ((video_name + '.mp4'), original_video_dir))
+      shutil.copyfile(output_file, os.path.join(original_video_dir, (video_name + '.mp4') ) )
+      logging.info('Deleting the original file: %s in %s' % (video_basename, original_video_dir))
+      os.unlink(os.path.join(original_video_dir, video_basename))
+    else:
+      output_file = os.path.join(temp_dir, video_basename)
+      logging.info('Copying the output file into place: %s -> %s' % (video_basename, original_video_dir))
+      shutil.copyfile(output_file, os.path.join(original_video_dir, video_basename) )
+    cleanup_and_exit(temp_dir, SAVE_ALWAYS, CONVERSION_SUCCESS)
   else:
     logging.info('Output file size looked wonky (too big or too small); we won\'t replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
     cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS, CONVERSION_SANITY_CHECK_FAILED)
