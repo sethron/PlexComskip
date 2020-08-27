@@ -8,6 +8,7 @@ comskip-path: C:\Program Files (x86)\comskip\comskip.exe
 
 # Path to the ffmpeg binary.
 ffmpeg-path: C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe
+HandBrakeCLI-path: C:\folderthis\HandBrakeCLI.exe
 
 [Logging]
 
