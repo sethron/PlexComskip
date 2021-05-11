@@ -92,7 +92,7 @@ def cleanup_and_exit(temp_dir, keep_temp=False, exit_code=CONVERSION_SUCCESS):
   sys.exit(exit_code)
 
 # If we're in a git repo, let's see if we can report our sha.
-logging.info('PlexComskip got invoked from %s' % os.path.realpath(__file__))
+logging.info('Comskip got invoked from %s' % os.path.realpath(__file__))
 try:
   git_sha = subprocess.check_output('git rev-parse --short HEAD', shell=True)
   if git_sha:
@@ -150,9 +150,9 @@ try:
   cmd = NICE_ARGS + [COMSKIP_PATH, '--output', comskip_out, '--ini', COMSKIP_INI_PATH, temp_video_path]
   logging.info('[comskip] Command: %s' % cmd)
   comskip_status = subprocess.call(cmd)
-  if comskip_status != 0:
-    logging.error('Comskip did not exit properly with code: %s' % comskip_status)
-    cleanup_and_exit(temp_dir, False, COMSKIP_FAILED)
+  #if comskip_status != 0:
+  #  logging.error('Comskip did not exit properly with code: %s' % comskip_status)
+  #  cleanup_and_exit(temp_dir, False, COMSKIP_FAILED)
     #raise Exception('Comskip did not exit properly')
 
 except Exception, e:
@@ -238,29 +238,29 @@ if TRANSCODE:
     logging.error('Something went wrong during transcoding: %s' % e)
     cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS, EXCEPTION_HANDLED)
 
-logging.info('Sanity checking our work...')
+logging.info('Copying file...')
 try:
   input_size = os.path.getsize(os.path.abspath(video_path))
   output_size = os.path.getsize(os.path.abspath(os.path.join(temp_dir, video_basename)))
-  if input_size and 1.01 > float(output_size) / float(input_size) > 0.99:
-    logging.info('Output file size was too similar (doesn\'t look like we did much); we won\'t replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
-    cleanup_and_exit(temp_dir, SAVE_ALWAYS, CONVERSION_DID_NOT_MODIFY_ORIGINAL)
-  elif input_size and 1.1 > float(output_size) / float(input_size) > 0.5:
-    logging.info('Output file size looked sane, we\'ll replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
-    if TRANSCODE:
-      output_file = os.path.join(temp_dir, 'temp.mp4')
-      logging.info('Copying the transcoded file into place: %s -> %s' % ((video_name + '.mp4'), original_video_dir))
-      shutil.copyfile(output_file, os.path.join(original_video_dir, (video_name + '.mp4') ) )
-      logging.info('Deleting the original file: %s in %s' % (video_basename, original_video_dir))
-      os.unlink(os.path.join(original_video_dir, video_basename))
-    else:
-      output_file = os.path.join(temp_dir, video_basename)
-      logging.info('Copying the output file into place: %s -> %s' % (video_basename, original_video_dir))
-      shutil.copyfile(output_file, os.path.join(original_video_dir, video_basename) )
-    cleanup_and_exit(temp_dir, SAVE_ALWAYS, CONVERSION_SUCCESS)
+  #if input_size and 1.01 > float(output_size) / float(input_size) > 0.99:
+  #  logging.info('Output file size was too similar (doesn\'t look like we did much); we won\'t replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
+  #  cleanup_and_exit(temp_dir, SAVE_ALWAYS, CONVERSION_DID_NOT_MODIFY_ORIGINAL)
+  # elif input_size and 1.1 > float(output_size) / float(input_size) > 0.5:
+  logging.info('Output file size: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
+  if TRANSCODE:
+    output_file = os.path.join(temp_dir, 'temp.mp4')
+    logging.info('Copying the transcoded file into place: %s -> %s' % ((video_name + '.mp4'), original_video_dir))
+    shutil.copyfile(output_file, os.path.join(original_video_dir, (video_name + '.mp4') ) )
+    logging.info('Deleting the original file: %s in %s' % (video_basename, original_video_dir))
+    os.unlink(os.path.join(original_video_dir, video_basename))
   else:
-    logging.info('Output file size looked wonky (too big or too small); we won\'t replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
-    cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS, CONVERSION_SANITY_CHECK_FAILED)
+    output_file = os.path.join(temp_dir, video_basename)
+    logging.info('Copying the output file into place: %s -> %s' % (video_basename, original_video_dir))
+    shutil.copyfile(output_file, os.path.join(original_video_dir, video_basename) )
+  cleanup_and_exit(temp_dir, SAVE_ALWAYS, CONVERSION_SUCCESS)
+  # else:
+  # logging.info('Output file size looked wonky (too big or too small); we won\'t replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
+  # cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS, CONVERSION_SANITY_CHECK_FAILED)
 except Exception, e:
   logging.error('Something went wrong during sanity check: %s' % e)
   cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS, EXCEPTION_HANDLED)
